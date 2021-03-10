@@ -8,7 +8,7 @@ def load_data(data_dir='./src/data/problems/', filename='t1'):
     num_works, num_shifts, min_num_shifts = [int(d) for d in data[0][:-1].split()]
     shifts = []
     for i in range(1, len(data)):
-        s = [int(d) for d in data[i][:-1].split()]
+        s = [int(d) for d in data[i][:-1].split()[2:]]
         shifts.append(s)
     
     return num_works, num_shifts, min_num_shifts, shifts
