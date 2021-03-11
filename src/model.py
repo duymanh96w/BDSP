@@ -22,6 +22,14 @@ class Node:
         self.weight = weight
 
     
+    def turn_on(self):
+        self.status = 1
+    
+
+    def turn_off(self):
+        self.status = 0
+
+    
     def make_connections(self, others: list):
         for other_node in others:
             if self.shift == other_node.shift:
@@ -65,6 +73,23 @@ class Cluster:
                 self.nodes[i].status = 1
             else:
                 self.nodes[i].status = 0
+
+        self.turned_on_node = 1
+
+
+    def repair(self):
+        cur_max_id = self.turned_on_node
+        if cur_max_id is None:
+            return
+
+        cur_max_input = -float('inf')
+        for i in range(len(self.nodes)):
+            self.nodes[i].turn_off()
+            input = self.nodes[i].get_input()
+            if input > cur_max_input:
+                cur_max_id = i
+                cur_max_input = input
+            self.nodes[cur_max_id].turn_on()
 
     
     def __str__(self) -> str:
