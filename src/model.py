@@ -45,7 +45,9 @@ class Node:
         for other in self.connected_nodes:
             _id1 = self._id
             _id2 = other._id
-            input += self.weight['%d.%d' % (_id1, _id2)] * other.status
+            smaller_id = _id1 if _id1 <= _id2 else _id2
+            bigger_id = _id1 if _id1 > _id2 else _id2
+            input += self.weight['%d.%d' % (smaller_id, bigger_id)] * other.status
 
         return input
 
@@ -74,11 +76,13 @@ class Cluster:
             else:
                 self.nodes[i].status = 0
 
-        self.turned_on_node = 1
+        self.turned_on_node = num
 
 
     def repair(self):
-        cur_max_id = self.turned_on_node
+        old_max_id = self.turned_on_node
+        cur_max_id = 0
+        max_ids = []
         if cur_max_id is None:
             return
 
@@ -89,7 +93,18 @@ class Cluster:
             if input > cur_max_input:
                 cur_max_id = i
                 cur_max_input = input
-            self.nodes[cur_max_id].turn_on()
+                max_ids = []
+                max_ids.append(i)
+            elif input == cur_max_input:
+                max_ids.append(i)
+        
+        if old_max_id in max_ids:
+            max_id = old_max_id
+        else:
+            max_id = random.choice(max_ids)
+        
+        self.nodes[max_id].turn_on()
+        self.turned_on_node = max_id
 
     
     def __str__(self) -> str:
@@ -104,6 +119,7 @@ class Network:
         self.nodes = []
         self.num_nodes = 0
         self.shifts = []
+        self.status_history = []
 
         for i in range(len(shifts)):
             shift = Shift(i, shifts[i])
@@ -135,4 +151,22 @@ class Network:
             for connected_node in node.connected_nodes:
                 _id1 = node._id
                 _id2 = connected_node._id
-                self.weight['%d.%d' % (_id1, _id2)] = -1
+                smaller_id = _id1 if _id1 <= _id2 else _id2
+                bigger_id = _id1 if _id1 > _id2 else _id2
+                if '%d.%d' % (smaller_id, bigger_id) not in self.weight:
+                    self.weight['%d.%d' % (smaller_id, bigger_id)] = -1
+
+    
+    def write_history(self):
+        stt = []
+        for cl in self.clusters:
+            stt.append(str(cl.nodes[cl.turned_on_node].shift._id))
+        
+        self.status_history.append('.'.join(stt))
+
+    
+    def learn(self):
+        for pair in self.weight:
+            _id1 = int(pair.split('.')[0])
+            _id2 = int(pair.split('.')[1])
+            self.weight[pair] -= self.nodes[_id1].status * self.nodes[_id2].status
