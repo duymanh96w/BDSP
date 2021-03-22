@@ -1,4 +1,5 @@
 import random
+from tqdm import tqdm
 
 
 class Shift:
@@ -8,7 +9,7 @@ class Shift:
 
     
     def __str__(self) -> str:
-        return str(self.piece_of_works)
+        return str(self._id) + ': ' + str(self.piece_of_works)
 
 
 class Node:
@@ -35,7 +36,10 @@ class Node:
             if self.shift == other_node.shift:
                 continue
             else:
-                if self.cluster_id in other_node.shift.piece_of_works or other_node.cluster_id in self.shift.piece_of_works:
+                # if self.cluster_id in other_node.shift.piece_of_works or other_node.cluster_id in self.shift.piece_of_works:
+                #     self.connected_nodes.append(other_node)
+                #     other_node.connected_nodes.append(self)
+                if len(set(self.shift.piece_of_works).union(set(other_node.shift.piece_of_works))) != 0:
                     self.connected_nodes.append(other_node)
                     other_node.connected_nodes.append(self)
 
@@ -142,19 +146,40 @@ class Network:
                 self.nodes.append(node)
 
     
+    def get_status(self):
+        s = 0
+        for cl in self.clusters:
+            cl_node_id = cl.turned_on_node
+            node_id = cl.nodes[cl_node_id]._id
+            s += self.nodes[node_id].get_input()
+
+        return s
+
+    
     def make_connections(self):
-        for i in range(len(self.clusters) - 1):
-            self.clusters[i].make_connections(self.clusters[i+1])
+        # for i in range(len(self.clusters) - 1):
+        #     self.clusters[i].make_connections(self.clusters[i+1])
 
 
-        for node in self.nodes:
-            for connected_node in node.connected_nodes:
-                _id1 = node._id
-                _id2 = connected_node._id
-                smaller_id = _id1 if _id1 <= _id2 else _id2
-                bigger_id = _id1 if _id1 > _id2 else _id2
-                if '%d.%d' % (smaller_id, bigger_id) not in self.weight:
-                    self.weight['%d.%d' % (smaller_id, bigger_id)] = -1
+        for i in tqdm(range(len(self.nodes) - 1)):
+            for j in range(i+1, len(self.nodes)):
+                if self.nodes[i].shift == self.nodes[j].shift:
+                    continue
+                else:
+                    if len(set(self.nodes[i].shift.piece_of_works).intersection(set(self.nodes[j].shift.piece_of_works))) != 0:
+                        self.nodes[i].connected_nodes.append(self.nodes[j])
+                        self.nodes[j].connected_nodes.append(self.nodes[i])
+                        self.weight['%d.%d' % (i, j)] = -1
+        
+
+        # for node in self.nodes:
+        #     for connected_node in node.connected_nodes:
+        #         _id1 = node._id
+        #         _id2 = connected_node._id
+        #         smaller_id = _id1 if _id1 <= _id2 else _id2
+        #         bigger_id = _id1 if _id1 > _id2 else _id2
+        #         if '%d.%d' % (smaller_id, bigger_id) not in self.weight:
+        #             self.weight['%d.%d' % (smaller_id, bigger_id)] = -1
 
     
     def write_history(self):
@@ -166,7 +191,18 @@ class Network:
 
     
     def learn(self):
-        for pair in self.weight:
-            _id1 = int(pair.split('.')[0])
-            _id2 = int(pair.split('.')[1])
-            self.weight[pair] -= self.nodes[_id1].status * self.nodes[_id2].status
+        # for pair in self.weight:
+        #     _id1 = int(pair.split('.')[0])
+        #     _id2 = int(pair.split('.')[1])
+        #     self.weight[pair] -= self.nodes[_id1].status * self.nodes[_id2].status
+        nodes_id = [cl.nodes[cl.turned_on_node]._id for cl in self.clusters]
+        for i in range(len(nodes_id) - 1):
+            _id1 = nodes_id[i]
+            for j in range(i+1, len(nodes_id)):
+                _id2 = nodes_id[j]
+                if '%d.%d' % (_id1, _id2) in self.weight:
+                    self.weight['%d.%d' % (_id1, _id2)]  -= 1
+                
+                if '%d.%d' % (_id2, _id1) in self.weight:
+                    self.weight['%d.%d' % (_id2, _id1)]  -= 1
+
