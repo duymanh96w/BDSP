@@ -39,19 +39,32 @@ class Node:
         cluster_id1 = self.cluster_id
         cluster_id2 = other.cluster_id
         
-        if cluster_id1 in self.shift.pieces_of_work                                                                     \
-            and cluster_id2 in self.shift.pieces_of_work                                                                \
-            and (cluster_id1 not in other.shift.pieces_of_work or cluster_id2 not in other.shift.pieces_of_work):
+        # if cluster_id1 in self.shift.pieces_of_work                                                                     \
+        #     and cluster_id2 in self.shift.pieces_of_work                                                                \
+        #     and (cluster_id1 not in other.shift.pieces_of_work or cluster_id2 not in other.shift.pieces_of_work):
+        #     return True
+
+        # if cluster_id1 in other.shift.pieces_of_work                                                                     \
+        #     and cluster_id2 in other.shift.pieces_of_work                                                                \
+        #     and (cluster_id1 not in self.shift.pieces_of_work or cluster_id2 not in self.shift.pieces_of_work):
+        #     return True
+
+        if self.shift == other.shift:
+            return False 
+        else:
+            le = len(list(set(self.shift.pieces_of_work).intersection(other.shift.pieces_of_work)))
+            return le != 0 and le != len(self.shift.pieces_of_work)
+
+        if cluster_id2 in self.shift.pieces_of_work and cluster_id1 not in other.shift.pieces_of_work:
             return True
 
-        if cluster_id1 in other.shift.pieces_of_work                                                                     \
-            and cluster_id2 in other.shift.pieces_of_work                                                                \
-            and (cluster_id1 not in self.shift.pieces_of_work or cluster_id2 not in self.shift.pieces_of_work):
+        if cluster_id2 not in self.shift.pieces_of_work and cluster_id1 in other.shift.pieces_of_work:
             return True
-        # if self.shift == other.shift:
-        #     return False 
-        # else:
-        #     return len(list(set(self.shift.pieces_of_work).intersection(other.shift.pieces_of_work))) == 0
+
+        if cluster_id1 in self.shift.pieces_of_work and cluster_id2 in self.shift.pieces_of_work            \
+            and cluster_id1 in other.shift.pieces_of_work and cluster_id2 in other.shift.pieces_of_work     \
+            and self.shift._id != other.shift._id:
+            return True
 
         return False
 
@@ -93,7 +106,7 @@ class Cluster:
             #     if self._id in node.shift.pieces_of_work:
             #         return True
             for node in self.nodes:
-                for other_node in  other.nodes:
+                for other_node in other.nodes:
                     if node.is_conflict(other_node):
                         return True
         
@@ -103,10 +116,9 @@ class Cluster:
     def update_nodes_input(self, other_node, constraint_node):
         for node in self.nodes:
             if node.is_conflict(other_node):
-                # node.input += self.weight[constraint_node]
                 node.input += self.weight[constraint_node]
-            else:
-                node.input = 0
+            # else:
+            #     node.input = 0
 
 
     def repair(self):
@@ -186,10 +198,32 @@ class Network:
         for constraint_node in self.weight:
             _id1 = int(constraint_node.split('.')[0])
             _id2 = int(constraint_node.split('.')[1])
-            if self.clusters[_id1].is_conflict(self.clusters[_id2]):
+
+            cl_turned_on_node1 = self.clusters[_id1].turned_on_node
+            cl_turned_on_node2 = self.clusters[_id2].turned_on_node
+            node1 = self.clusters[_id1].nodes[cl_turned_on_node1]
+            node2 = self.clusters[_id2].nodes[cl_turned_on_node2]
+            if node1.is_conflict(node2):
                 s += 1
 
         return s
+
+    
+    def get_status_list(self):
+        conflict_list = []
+
+        for constraint_node in self.weight:
+            _id1 = int(constraint_node.split('.')[0])
+            _id2 = int(constraint_node.split('.')[1])
+
+            cl_turned_on_node1 = self.clusters[_id1].turned_on_node
+            cl_turned_on_node2 = self.clusters[_id2].turned_on_node
+            node1 = self.clusters[_id1].nodes[cl_turned_on_node1]
+            node2 = self.clusters[_id2].nodes[cl_turned_on_node2]
+            if node1.is_conflict(node2):
+                conflict_list.append(constraint_node)
+
+        return conflict_list
 
     
     def make_connections(self):
@@ -224,17 +258,33 @@ class Network:
         self.status_history.append('.'.join(stt))
 
     
-    def repair(self, updated_cluster_id):
-        cl_turned_on_node_id = self.clusters[updated_cluster_id].turned_on_node
-        node = self.clusters[updated_cluster_id].nodes[cl_turned_on_node_id]
-        related_clusters_id = self.clusters[updated_cluster_id].conflict_clusters
-        for _id in related_clusters_id:
-            _id1 = int(updated_cluster_id)
-            _id2 = int(_id)
-            if _id1 >= _id2:
-                _id1, _id2 = _id2, _id1
+    # def repair(self, updated_cluster_id):
+    #     cl_turned_on_node_id = self.clusters[updated_cluster_id].turned_on_node
+    #     node = self.clusters[updated_cluster_id].nodes[cl_turned_on_node_id]
+    #     related_clusters_id = self.clusters[updated_cluster_id].conflict_clusters
+    #     for _id in related_clusters_id:
+    #         _id1 = int(updated_cluster_id)
+    #         _id2 = int(_id)
+    #         if _id1 >= _id2:
+    #             _id1, _id2 = _id2, _id1
 
-            self.clusters[_id].update_nodes_input(node, '%d.%d' % (_id1, _id2))
+    #         self.clusters[_id].update_nodes_input(node, '%d.%d' % (_id1, _id2))
+
+            # cl_other_nod1ated_cluster_id].update_nodes_input(other_node, '%d.%d' % (_id1, _id2))
+
+    
+    def repair(self):
+        for updated_cluster_id in range(len(self.clusters)):
+            cl_turned_on_node_id = self.clusters[updated_cluster_id].turned_on_node
+            node = self.clusters[updated_cluster_id].nodes[cl_turned_on_node_id]
+            related_clusters_id = self.clusters[updated_cluster_id].conflict_clusters
+            for _id in related_clusters_id:
+                _id1 = int(updated_cluster_id)
+                _id2 = int(_id)
+                if _id1 >= _id2:
+                    _id1, _id2 = _id2, _id1
+
+                self.clusters[_id].update_nodes_input(node, '%d.%d' % (_id1, _id2))
 
     
     def learn(self):
@@ -248,4 +298,42 @@ class Network:
             node2 = self.clusters[_id2].nodes[cl_turned_on_node2]
             if node1.is_conflict(node2):
                 self.weight[constraint_node] -= 1
+                # node1.input -= 1
+                # node2.input -= 1
 
+            # self.clusters[_id1].update_nodes_input(node2, constraint_node)
+            # self.clusters[_id2].update_nodes_input(node1, constraint_node)
+
+
+    def create_init_solution(self, use_heuristic=False):
+        if not use_heuristic:
+            for cl in self.clusters:
+                cl.random_turn_on_node()
+
+        else:
+            available_shifts = {w: [] for w in range(self.num_works)}
+            assigned = [i for i in range(self.num_works)]
+            while len(assigned) != 0:
+                w = assigned[0]
+
+                shift_id = -1
+                max_common = 0
+                for node in self.clusters[w].nodes:
+                    le = len(list(set(assigned).intersection(set(node.shift.pieces_of_work))))
+                    if le > max_common:
+                        shift_id = node.shift._id
+                        max_common = le
+
+                for pow in self.shifts[shift_id].pieces_of_work:
+                    try:
+                        assigned.remove(pow)
+                        available_shifts[pow].append(shift_id)
+                    except:
+                        continue
+            
+            for w in available_shifts:
+                shift_id = random.choice(available_shifts[w])
+                for cl_node_id in range(len(self.clusters[w].nodes)):
+                    if self.clusters[w].nodes[cl_node_id].shift._id == shift_id:
+                        self.clusters[w].nodes[cl_node_id].status = 1
+                        self.clusters[w].turned_on_node = cl_node_id
